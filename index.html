@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Deteksi Kebakaran</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Menggunakan versi Chart.js yang dikunci (v3.9.1) agar tidak error saat ada update -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
-        /* Tema Dark Mode & Glow */
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             padding: 20px; 
@@ -17,48 +17,147 @@
             max-width: 900px; 
             margin: auto; 
         }
+        h2 { text-align: center; color: #fff; text-shadow: 0 0 10px #00e6ff, 0 0 20px #00e6ff; margin-bottom: 30px; }
+        .card { background: #1a1b26; padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #2a2b3d; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .status-box { font-size: 28px; font-weight: bold; padding: 15px; border-radius: 8px; text-align: center; margin-top: 10px; letter-spacing: 2px; }
         
-        h2 {
-            text-align: center;
-            color: #fff;
-            text-shadow: 0 0 10px #00e6ff, 0 0 20px #00e6ff;
-            margin-bottom: 30px;
-        }
-
-        .card { 
-            background: #1a1b26; 
-            padding: 20px; 
-            border-radius: 12px; 
-            margin-bottom: 25px; 
-            border: 1px solid #2a2b3d;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5); 
-        }
-
-        /* Status & Glow Effects */
-        .status-box { 
-            font-size: 28px; 
-            font-weight: bold; 
-            padding: 15px; 
-            border-radius: 8px; 
-            text-align: center; 
-            margin-top: 10px;
-            letter-spacing: 2px;
-        }
         .aman { color: #00ff66; text-shadow: 0 0 10px #00ff66, 0 0 20px #00ff66; box-shadow: inset 0 0 20px rgba(0, 255, 102, 0.2); } 
         .siaga { color: #ffea00; text-shadow: 0 0 10px #ffea00, 0 0 20px #ffea00; box-shadow: inset 0 0 20px rgba(255, 234, 0, 0.2); } 
         .bahaya { color: #ff003c; text-shadow: 0 0 10px #ff003c, 0 0 30px #ff003c; box-shadow: inset 0 0 20px rgba(255, 0, 60, 0.2); }
-
+        
         .koneksi-text { font-weight: bold; }
         .online { color: #00ff66; text-shadow: 0 0 8px #00ff66; }
         .offline { color: #ff003c; text-shadow: 0 0 8px #ff003c; }
-
         .api-terdeteksi { color: #ff003c; text-shadow: 0 0 10px #ff003c; font-weight: bold; }
         .api-aman { color: #00ff66; text-shadow: 0 0 10px #00ff66; font-weight: bold; }
 
-        /* Floating Button Pojok Kanan Bawah */
-        .floating-controls {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(26, 27, 38, 0.85);
-            padding:
+        .floating-controls { position: fixed; bottom: 20px; right: 20px; background: rgba(26, 27, 38, 0.85); padding: 15px; border-radius: 12px; border: 1px solid #333; backdrop-filter: blur(10px); box-shadow: 0 0 20px rgba(0,0,0,0.8); z-index: 1000; text-align: center; }
+        .floating-controls h4 { margin: 0 0 10px 0; font-size: 14px; text-shadow: 0 0 5px #fff; }
+        .btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; color: white; margin: 2px; transition: 0.3s; }
+        .btn-on { background: #0088ff; box-shadow: 0 0 10px #0088ff; }
+        .btn-on:hover { background: #00aaff; box-shadow: 0 0 15px #00aaff; }
+        .btn-off { background: #ff003c; box-shadow: 0 0 10px #ff003c; }
+        .btn-off:hover { background: #ff3366; box-shadow: 0 0 15px #ff3366; }
+        .chart-container { display: flex; flex-direction: column; gap: 20px; }
+        canvas { background: #12131a; border-radius: 8px; padding: 10px; border: 1px solid #2a2b3d; }
+    </style>
+</head>
+<body>
+
+    <h2>⚡ Sistem Peringatan Dini Kebakaran</h2>
+    
+    <div class="card">
+        <p>Koneksi Alat: <span id="koneksi" class="koneksi-text online">Menghubungkan...</span></p>
+        <p>Deteksi Api: <span id="statusApi">Memeriksa...</span></p>
+        <div id="statusSistem" class="status-box aman">AMAN</div>
+    </div>
+
+    <div class="card chart-container">
+        <div>
+            <h3 style="color: #ff3366; text-shadow: 0 0 8px #ff3366;">🌡️ Grafik Suhu (°C)</h3>
+            <canvas id="grafikSuhu"></canvas>
+        </div>
+        <div>
+            <h3 style="color: #00e6ff; text-shadow: 0 0 8px #00e6ff;">💨 Grafik Asap / Gas (ppm)</h3>
+            <canvas id="grafikGas"></canvas>
+        </div>
+    </div>
+
+    <!-- Tombol Melayang -->
+    <div class="floating-controls">
+        <h4>💧 Pompa: <span id="statusPompa">OFF</span></h4>
+        <button class="btn btn-on" onclick="setPompa(true)">ON</button>
+        <button class="btn btn-off" onclick="setPompa(false)">OFF</button>
+    </div>
+
+    <script>
+        // Konfigurasi Firebase Anti-Error
+        const firebaseConfig = {
+            apiKey: "dummy-api-key", 
+            projectId: "cegah-5d061", 
+            databaseURL: "https://cegah-5d061-default-rtdb.asia-southeast1.firebasedatabase.app"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Opsi Grafik (Garis kotak-kotak tipis)
+        Chart.defaults.color = '#8892b0';
+        const chartOptions = {
+            scales: {
+                x: { grid: { color: 'rgba(255, 255, 255, 0.05)' } },
+                y: { grid: { color: 'rgba(255, 255, 255, 0.05)' } }
+            }
+        };
+
+        const ctxSuhu = document.getElementById('grafikSuhu').getContext('2d');
+        const chartSuhu = new Chart(ctxSuhu, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Suhu (°C)', borderColor: '#ff003c', backgroundColor: 'rgba(255, 0, 60, 0.1)', borderWidth: 2, pointRadius: 3, fill: true, tension: 0.3, data: [] }] },
+            options: chartOptions
+        });
+
+        const ctxGas = document.getElementById('grafikGas').getContext('2d');
+        const chartGas = new Chart(ctxGas, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Gas (ppm)', borderColor: '#00e6ff', backgroundColor: 'rgba(0, 230, 255, 0.1)', borderWidth: 2, pointRadius: 3, fill: true, tension: 0.3, data: [] }] },
+            options: chartOptions
+        });
+
+        // Listener Data Live
+        db.ref('SistemKebakaran/Live').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if(data) {
+                const box = document.getElementById('statusSistem');
+                box.innerText = data.status;
+                box.className = 'status-box ' + data.status.toLowerCase();
+                
+                const apiEl = document.getElementById('statusApi');
+                if(data.is_api) {
+                    apiEl.innerText = "🔥 TERDETEKSI!";
+                    apiEl.className = "api-terdeteksi";
+                } else {
+                    apiEl.innerText = "TIDAK TERDETEKSI";
+                    apiEl.className = "api-aman";
+                }
+
+                const pompaEl = document.getElementById('statusPompa');
+                pompaEl.innerText = data.pompa_aktif ? "ON" : "OFF";
+                pompaEl.style.color = data.pompa_aktif ? "#00e6ff" : "#ff003c";
+
+                const konEl = document.getElementById('koneksi');
+                const now = Math.floor(Date.now() / 1000);
+                if (now - data.last_ping > 15) {
+                    konEl.innerText = "OFFLINE 🔴";
+                    konEl.className = "koneksi-text offline";
+                } else {
+                    konEl.innerText = "ONLINE 🟢";
+                    konEl.className = "koneksi-text online";
+                }
+            }
+        });
+
+        // Listener History untuk Grafik (Memuat 15 data terakhir)
+        db.ref('SistemKebakaran/History').limitToLast(15).on('value', (snapshot) => {
+            const labels = [], dataSuhu = [], dataGas = [];
+            snapshot.forEach((child) => {
+                const val = child.val();
+                labels.push(val.waktu);
+                dataSuhu.push(val.suhu);
+                dataGas.push(val.gas);
+            });
+            
+            chartSuhu.data.labels = labels;
+            chartSuhu.data.datasets[0].data = dataSuhu;
+            chartSuhu.update();
+
+            chartGas.data.labels = labels;
+            chartGas.data.datasets[0].data = dataGas;
+            chartGas.update();
+        });
+
+        function setPompa(state) {
+            db.ref('SistemKebakaran/Live').update({ perintah_pompa: state });
+        }
+    </script>
+</body>
+</html>
