@@ -8,92 +8,57 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f9; max-width: 800px; margin: auto; }
-        .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .status-box { font-size: 24px; font-weight: bold; padding: 10px; border-radius: 5px; text-align: center; color: white;}
-        .aman { background: #2ecc71; } .siaga { background: #f1c40f; color: black; } .bahaya { background: #e74c3c; }
-        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; color: white; margin-right: 10px;}
-        .btn-on { background: #3498db; } .btn-off { background: #95a5a6; }
-    </style>
-</head>
-<body>
-
-    <h2 style="text-align: center;">🔥 Dashboard Pemantauan Kebakaran</h2>
-    
-    <div class="card">
-        <p>Status Alat: <strong id="koneksi">Menghubungkan...</strong></p>
-        <div id="statusSistem" class="status-box aman">AMAN</div>
-    </div>
-
-    <div class="card">
-        <h3>Kontrol Pompa (Saat ini: <span id="statusPompa">OFF</span>)</h3>
-        <button class="btn btn-on" onclick="setPompa(true)">Nyalakan Pompa</button>
-        <button class="btn btn-off" onclick="setPompa(false)">Matikan Pompa</button>
-    </div>
-
-    <div class="card">
-        <h3>Grafik Suhu & Gas (Real-time)</h3>
-        <canvas id="grafikSensor"></canvas>
-    </div>
-
-    <script>
-        // Konfigurasi Firebase Anda
-        const firebaseConfig = {
-            databaseURL: "https://cegah-5d061-default-rtdb.asia-southeast1.firebasedatabase.app"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-
-        // Inisialisasi Grafik
-        const ctx = document.getElementById('grafikSensor').getContext('2d');
-        const chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [], 
-                datasets: [
-                    { label: 'Suhu (°C)', borderColor: 'red', data: [], tension: 0.1 },
-                    { label: 'Gas', borderColor: 'blue', data: [], tension: 0.1 }
-                ]
-            }
-        });
-
-        // Listener Data Live
-        db.ref('SistemKebakaran/Live').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if(data) {
-                const box = document.getElementById('statusSistem');
-                box.innerText = data.status;
-                box.className = 'status-box ' + data.status.toLowerCase();
-                
-                document.getElementById('statusPompa').innerText = data.pompa_aktif ? "ON 💧" : "OFF 🛑";
-
-                const now = Math.floor(Date.now() / 1000);
-                const diff = now - data.last_ping;
-                document.getElementById('koneksi').innerText = (diff > 15) ? "OFFLINE 🔴" : "ONLINE 🟢";
-            }
-        });
-
-        // Load Data History untuk Grafik (Menampilkan 15 data terakhir)
-        db.ref('SistemKebakaran/History').limitToLast(15).on('value', (snapshot) => {
-            const labels = [];
-            const dataSuhu = [];
-            const dataGas = [];
-            snapshot.forEach((child) => {
-                const val = child.val();
-                labels.push(val.waktu);
-                dataSuhu.push(val.suhu);
-                dataGas.push(val.gas);
-            });
-            chart.data.labels = labels;
-            chart.data.datasets[0].data = dataSuhu;
-            chart.data.datasets[1].data = dataGas;
-            chart.update();
-        });
-
-        // Fungsi Tombol Pompa
-        function setPompa(state) {
-            db.ref('SistemKebakaran/Live').update({ perintah_pompa: state });
+        /* Tema Dark Mode & Glow */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            padding: 20px; 
+            background-color: #0f1015; 
+            color: #ffffff;
+            max-width: 900px; 
+            margin: auto; 
         }
-    </script>
-</body>
-</html>
+        
+        h2 {
+            text-align: center;
+            color: #fff;
+            text-shadow: 0 0 10px #00e6ff, 0 0 20px #00e6ff;
+            margin-bottom: 30px;
+        }
+
+        .card { 
+            background: #1a1b26; 
+            padding: 20px; 
+            border-radius: 12px; 
+            margin-bottom: 25px; 
+            border: 1px solid #2a2b3d;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); 
+        }
+
+        /* Status & Glow Effects */
+        .status-box { 
+            font-size: 28px; 
+            font-weight: bold; 
+            padding: 15px; 
+            border-radius: 8px; 
+            text-align: center; 
+            margin-top: 10px;
+            letter-spacing: 2px;
+        }
+        .aman { color: #00ff66; text-shadow: 0 0 10px #00ff66, 0 0 20px #00ff66; box-shadow: inset 0 0 20px rgba(0, 255, 102, 0.2); } 
+        .siaga { color: #ffea00; text-shadow: 0 0 10px #ffea00, 0 0 20px #ffea00; box-shadow: inset 0 0 20px rgba(255, 234, 0, 0.2); } 
+        .bahaya { color: #ff003c; text-shadow: 0 0 10px #ff003c, 0 0 30px #ff003c; box-shadow: inset 0 0 20px rgba(255, 0, 60, 0.2); }
+
+        .koneksi-text { font-weight: bold; }
+        .online { color: #00ff66; text-shadow: 0 0 8px #00ff66; }
+        .offline { color: #ff003c; text-shadow: 0 0 8px #ff003c; }
+
+        .api-terdeteksi { color: #ff003c; text-shadow: 0 0 10px #ff003c; font-weight: bold; }
+        .api-aman { color: #00ff66; text-shadow: 0 0 10px #00ff66; font-weight: bold; }
+
+        /* Floating Button Pojok Kanan Bawah */
+        .floating-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(26, 27, 38, 0.85);
+            padding:
